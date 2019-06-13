@@ -225,11 +225,11 @@ class HyperQA:
                                     [self.vocab_size, self.args.emb_size], 
                                         -0.01, 0.01))
 
-                q1_embed =  tf.nn.embedding_lookup(self.embeddings, 
+                q1_embed =  tf.nn.embedding_lookup(self.embeddings_init, 
                                                         q1_inputs)
-                q2_embed =  tf.nn.embedding_lookup(self.embeddings, 
+                q2_embed =  tf.nn.embedding_lookup(self.embeddings_init, 
                                                         q2_inputs)
-                q3_embed = tf.nn.embedding_lookup(self.embeddings, 
+                q3_embed = tf.nn.embedding_lookup(self.embeddings_init, 
                                                         q3_inputs)
                         
             if(self.args.all_dropout):
@@ -336,11 +336,11 @@ class HyperQA:
                             else:
                                 clip_g = [(grad,var) for grad,var in gradients]
                       
-                        with tf.control_dependencies(control_deps):
+                        #with tf.control_dependencies(control_deps):
                             self.train_op = self.opt.apply_gradients(clip_g, 
                                                 global_step=global_step)
-                            self.wiggle_op = self.opt2.apply_gradients(clip_g, 
-                                                global_step=global_step)
+                        #    self.wiggle_op = self.opt2.apply_gradients(clip_g, 
+                        #                        global_step=global_step)
                    
                 self.grads = _none_to_zero(tf.gradients(self.cost,tvars), tvars)
                 self.merged_summary_op = tf.summary.merge_all(
@@ -352,16 +352,16 @@ class HyperQA:
 if __name__ == '__main__':
 
     vocab_size=400000
-    argumentos = Namespace(init_type = "xavier", learn_rate = 0.001, 
+    argumentos = Namespace(init_type = "xavier", learn_rate = 0.01, 
                            emb_dropout = 1, dropout = 1, qmax = 60, 
-                           amax = 30, emb_size= 300, pretrained = 0, 
-                           opt= "Adam", all_dropout=0, rnn_size=200,
-                           num_proj = 1, margin = 5, l2_reg = 0.001,
+                           amax = 30, emb_size= 300, pretrained = 1, 
+                           opt= "Adagrad", all_dropout=0, rnn_size=200,
+                           num_proj = 2, margin = 5, l2_reg = 0.0001,
                            decay_lr = 0, decay_epoch = 0, batch_size = 50,
-                           clip_norm = 0)
+                           clip_norm = 1, trainable = False)
                            
     hyper = HyperQA(vocab_size = vocab_size, args = argumentos )
-    df = pd.read_csv('/home/arthur/learning/ML/Deep Learning/AI2-ScienceQuestions-V2.1-Jan2018/ElementarySchool/training_data.csv')
+    df = pd.read_csv('/home/arthur/learning/ml_and_dataScience/embeddings/AI2-ScienceQuestions-V2.1-Jan2018/ElementarySchool/training_data.csv')
     print(len(df))
     df.q1=df.q1.apply(lambda x: literal_eval(x))
     df.a1=df.a1.apply(lambda x: literal_eval(x))
@@ -374,18 +374,20 @@ if __name__ == '__main__':
     with hyper.graph.as_default():
         train = hyper.opt.minimize(hyper.cost)
         init = tf.global_variables_initializer()
+        saver = tf.train.Saver()
 
         with tf.Session() as sess:
             sess.run(init)
-            for step in range(15):
+            for step in range(311):
                 q, a1, wa1, len_q1, len_a1, len_wa1, df_b = embeddings.get_batch(50,60,30,df)
                 feed={hyper.q1_inputs:q, hyper.q2_inputs:a1, hyper.q3_inputs:wa1,
                       hyper.q1_len: len_q1, hyper.q2_len: len_a1, hyper.q3_len: len_wa1,
                       hyper.dropout: hyper.args.dropout, hyper.emb_dropout: hyper.args.emb_dropout,
-                      hyper.learn_rate: hyper.args.learn_rate}
+                      hyper.learn_rate: hyper.args.learn_rate, hyper.emb_placeholder:embeddings.word_vectors}
                 sess.run(train, feed_dict = feed)
                 result = sess.run(hyper.cost, feed_dict = feed)
                 print(result)
+            saver.save(sess,'models/first.ckpt')
 
 
                
