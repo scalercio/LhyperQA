@@ -370,6 +370,7 @@ if __name__ == '__main__':
     df.wa3=df.wa3.apply(lambda x: literal_eval(x))
 
     embeddings = PreTrainedEmbeddings.from_embeddings_file('glove.6B.300d.txt')
+    training = 0
     
     with hyper.graph.as_default():
         train = hyper.opt.minimize(hyper.cost)
@@ -377,17 +378,45 @@ if __name__ == '__main__':
         saver = tf.train.Saver()
 
         with tf.Session() as sess:
-            sess.run(init)
-            for step in range(311):
-                q, a1, wa1, len_q1, len_a1, len_wa1, df_b = embeddings.get_batch(50,60,30,df)
-                feed={hyper.q1_inputs:q, hyper.q2_inputs:a1, hyper.q3_inputs:wa1,
-                      hyper.q1_len: len_q1, hyper.q2_len: len_a1, hyper.q3_len: len_wa1,
-                      hyper.dropout: hyper.args.dropout, hyper.emb_dropout: hyper.args.emb_dropout,
-                      hyper.learn_rate: hyper.args.learn_rate, hyper.emb_placeholder:embeddings.word_vectors}
-                sess.run(train, feed_dict = feed)
-                result = sess.run(hyper.cost, feed_dict = feed)
-                print(result)
-            saver.save(sess,'models/first.ckpt')
+            if (training==1):
+                sess.run(init)
+                for step in range(311):
+                    q, a1, wa1, len_q1, len_a1, len_wa1, df_b = embeddings.get_batch(50,60,30,df)
+                    feed={hyper.q1_inputs:q, hyper.q2_inputs:a1, hyper.q3_inputs:wa1,
+                        hyper.q1_len: len_q1, hyper.q2_len: len_a1, hyper.q3_len: len_wa1,
+                        hyper.dropout: hyper.args.dropout, hyper.emb_dropout: hyper.args.emb_dropout,
+                        hyper.learn_rate: hyper.args.learn_rate, hyper.emb_placeholder:embeddings.word_vectors}
+                    sess.run(train, feed_dict = feed)
+                    result = sess.run(hyper.cost, feed_dict = feed)
+                    print(result)
+                saver.save(sess,'models/second.ckpt')
+            else:
+                df_val = pd.read_csv('/home/arthur/learning/ml_and_dataScience/embeddings/AI2-ScienceQuestions-V2.1-Jan2018/ElementarySchool/val_data.csv')
+                print(len(df_val))
+                df_val.q1=df_val.q1.apply(lambda x: literal_eval(x))
+                df_val.a=df_val.a.apply(lambda x: literal_eval(x))
+                df_val.b=df_val.b.apply(lambda x: literal_eval(x))
+                df_val.c=df_val.c.apply(lambda x: literal_eval(x))
+                df_val.d=df_val.d.apply(lambda x: literal_eval(x))
+                saver.restore(sess,'models/first.ckpt')
+                q, a1, a2, len_q1, len_a1, len_a2, = embeddings.get_data_test(60,30,df_val)
+                feed={hyper.q1_inputs:q, hyper.q2_inputs:a1, hyper.q3_inputs:a2,
+                        hyper.q1_len: len_q1, hyper.q2_len: len_a1, hyper.q3_len: len_a2,
+                        hyper.dropout: 1, hyper.emb_dropout: 1,
+                        hyper.learn_rate: hyper.args.learn_rate, hyper.emb_placeholder:embeddings.word_vectors}
+                score_a_c, score_b_d = sess.run([hyper.output_pos,hyper.output_neg], feed_dict = feed)
+                #print("Imprimindo :\n",score_a_c,score_b_d)
+                score_all = tf.concat([score_a_c,score_b_d],1)
+                score_all = tf.reshape(score_all, [-1, 4])
+                print("Imprimindo reshapeado:\n",sess.run(score_all))
+                final=tf.argmin(score_all,1)# tipo <class 'tensorflow.python.framework.ops.Tensor'>
+                prediction = sess.run(final)
+                #print(prediction) #tipo <class 'numpy.ndarray'>
+                final_data = pd.concat([df_val,pd.DataFrame(data = prediction, columns=["prediction"])],axis=1)
+                dict1 = {0:"A",1:"B", 2:"C", 3:"D"}
+                final_data["prediction"].replace(dict1,inplace = True)
+                final_data.to_csv('/home/arthur/learning/ml_and_dataScience/LhyperQA/val_result1.csv',index=False)
+
 
 
                
