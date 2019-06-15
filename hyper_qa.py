@@ -356,21 +356,14 @@ if __name__ == '__main__':
                            emb_dropout = 1, dropout = 1, qmax = 60, 
                            amax = 30, emb_size= 300, pretrained = 1, 
                            opt= "Adagrad", all_dropout=0, rnn_size=200,
-                           num_proj = 2, margin = 5, l2_reg = 0.0001,
-                           decay_lr = 0, decay_epoch = 0, batch_size = 50,
+                           num_proj = 3, margin = 5, l2_reg = 0.0001,
+                           decay_lr = 0.95, decay_epoch = 100, batch_size = 50,
                            clip_norm = 1, trainable = False)
                            
     hyper = HyperQA(vocab_size = vocab_size, args = argumentos )
-    df = pd.read_csv('/home/arthur/learning/ml_and_dataScience/embeddings/AI2-ScienceQuestions-V2.1-Jan2018/ElementarySchool/training_data.csv')
-    print(len(df))
-    df.q1=df.q1.apply(lambda x: literal_eval(x))
-    df.a1=df.a1.apply(lambda x: literal_eval(x))
-    df.wa1=df.wa1.apply(lambda x: literal_eval(x))
-    df.wa2=df.wa2.apply(lambda x: literal_eval(x))
-    df.wa3=df.wa3.apply(lambda x: literal_eval(x))
 
     embeddings = PreTrainedEmbeddings.from_embeddings_file('glove.6B.300d.txt')
-    training = 0
+    training = 1
     
     with hyper.graph.as_default():
         train = hyper.opt.minimize(hyper.cost)
@@ -379,6 +372,14 @@ if __name__ == '__main__':
 
         with tf.Session() as sess:
             if (training==1):
+                df = pd.read_csv('/home/arthur/learning/ml_and_dataScience/embeddings/AI2-ScienceQuestions-V2.1-Jan2018/ElementarySchool/training_data.csv')
+                print(len(df))
+                df.q1=df.q1.apply(lambda x: literal_eval(x))
+                df.a1=df.a1.apply(lambda x: literal_eval(x))
+                df.wa1=df.wa1.apply(lambda x: literal_eval(x))
+                df.wa2=df.wa2.apply(lambda x: literal_eval(x))
+                df.wa3=df.wa3.apply(lambda x: literal_eval(x))
+                cost_f=[]
                 sess.run(init)
                 for step in range(311):
                     q, a1, wa1, len_q1, len_a1, len_wa1, df_b = embeddings.get_batch(50,60,30,df)
@@ -388,8 +389,11 @@ if __name__ == '__main__':
                         hyper.learn_rate: hyper.args.learn_rate, hyper.emb_placeholder:embeddings.word_vectors}
                     sess.run(train, feed_dict = feed)
                     result = sess.run(hyper.cost, feed_dict = feed)
-                    print(result)
-                saver.save(sess,'models/second.ckpt')
+                    cost_f.append(result)
+                    print(step,": ",result)
+                saver.save(sess,'models/v7.ckpt')
+                df_cost = pd.DataFrame(data = cost_f, columns=["Batch Cost"])
+                df_cost.to_csv('/home/arthur/learning/ml_and_dataScience/LhyperQA/cost_train_7.csv',index=False)
             else:
                 df_val = pd.read_csv('/home/arthur/learning/ml_and_dataScience/embeddings/AI2-ScienceQuestions-V2.1-Jan2018/ElementarySchool/val_data.csv')
                 print(len(df_val))
@@ -398,7 +402,7 @@ if __name__ == '__main__':
                 df_val.b=df_val.b.apply(lambda x: literal_eval(x))
                 df_val.c=df_val.c.apply(lambda x: literal_eval(x))
                 df_val.d=df_val.d.apply(lambda x: literal_eval(x))
-                saver.restore(sess,'models/first.ckpt')
+                saver.restore(sess,'models/second.ckpt')
                 q, a1, a2, len_q1, len_a1, len_a2, = embeddings.get_data_test(60,30,df_val)
                 feed={hyper.q1_inputs:q, hyper.q2_inputs:a1, hyper.q3_inputs:a2,
                         hyper.q1_len: len_q1, hyper.q2_len: len_a1, hyper.q3_len: len_a2,
@@ -415,7 +419,7 @@ if __name__ == '__main__':
                 final_data = pd.concat([df_val,pd.DataFrame(data = prediction, columns=["prediction"])],axis=1)
                 dict1 = {0:"A",1:"B", 2:"C", 3:"D"}
                 final_data["prediction"].replace(dict1,inplace = True)
-                final_data.to_csv('/home/arthur/learning/ml_and_dataScience/LhyperQA/val_result1.csv',index=False)
+                final_data.to_csv('/home/arthur/learning/ml_and_dataScience/LhyperQA/val_result2.csv',index=False)
 
 
 
