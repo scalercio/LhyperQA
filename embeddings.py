@@ -191,7 +191,7 @@ class PreTrainedEmbeddings(object):
         a_aux=df["a"].values
         b_aux=df["b"].values
         c_aux=df["c"].values
-        d_aux=df["d"].values       
+        d_aux=df["d"].values
         
         for i in range(len(df)):
             #insere os índices das palavras da pergunta em q_input
@@ -253,5 +253,88 @@ class PreTrainedEmbeddings(object):
                 aux=aux[0:amax]
                 len_a2[i+len(df)]=amax
             a2_input[i+len(df),0:len(aux)]=aux
+    
+        return q_input, a1_input, a2_input, len_q, len_a1, len_a2
+
+    def get_data_cost(self, qmax, amax, df):
+        q_input = np.ones((3*len(df), qmax), dtype=int)
+        len_q = np.concatenate((df["len_q1"].values,df["len_q1"].values,df["len_q1"].values))
+        a1_input = np.ones((3*len(df), amax), dtype=int)
+        a2_input = np.ones((3*len(df), amax), dtype=int)
+        len_a1 = np.concatenate((df["len_a1"].values,df["len_a1"].values,df["len_a1"].values))
+        len_a2 = np.concatenate((df["len_wa1"].values,df["len_wa2"].values,df["len_wa3"].values))
+        
+        q_aux=df["q1"].values        
+        a1_aux=df["a1"].values
+        wa1_aux=df["wa1"].values
+        wa2_aux=df["wa2"].values
+        wa3_aux=df["wa3"].values
+        
+        for i in range(len(df)):
+            #insere os índices das palavras da pergunta em q_input
+            aux=[]
+            for token in q_aux[i]:
+                if token not in self.word_to_index:
+                    aux.append(2)
+                else:
+                    aux.append(self.word_to_index[token])
+            if(len(aux)>qmax):
+                aux=aux[0:qmax]
+                len_q[i]=qmax
+                len_q[i+len(df)]=qmax
+                len_q[i+2*len(df)]=qmax
+            q_input[i,0:len(aux)]=aux
+            q_input[i+len(df),0:len(aux)]=aux
+            q_input[i+2*len(df),0:len(aux)]=aux
+
+            #insere os índices das palavras contidas na resposta certa em a1_input 
+            aux=[]
+            for token in a1_aux[i]:
+                if token not in self.word_to_index:
+                    aux.append(2)
+                else:
+                    aux.append(self.word_to_index[token])
+            if(len(aux)>amax):
+                aux=aux[0:amax]
+                len_a1[i]=amax
+                len_a1[i+len(df)]=amax
+                len_a1[i+2*len(df)]=amax
+            a1_input[i,0:len(aux)]=aux
+            a1_input[i+len(df),0:len(aux)]=aux
+            a1_input[i+2*len(df),0:len(aux)]=aux
+
+            #insere os índices das palavras contidas na reposta errada wa1 em a2_input         
+            aux=[]
+            for token in wa1_aux[i]:
+                if token not in self.word_to_index:
+                    aux.append(2)
+                else:
+                    aux.append(self.word_to_index[token])
+            if(len(aux)>amax):
+                aux=aux[0:amax]
+                len_a2[i]=amax
+            a2_input[i,0:len(aux)]=aux
+            #insere os índices das palavras contidas na reposta errada wa2 em a2_input         
+            aux=[]
+            for token in wa2_aux[i]:
+                if token not in self.word_to_index:
+                    aux.append(2)
+                else:
+                    aux.append(self.word_to_index[token])
+            if(len(aux)>amax):
+                aux=aux[0:amax]
+                len_a2[i+len(df)]=amax
+            a2_input[i+len(df),0:len(aux)]=aux
+            #insere os índices das palavras contidas na reposta errada wa3 em a2_input         
+            aux=[]
+            for token in wa3_aux[i]:
+                if token not in self.word_to_index:
+                    aux.append(2)
+                else:
+                    aux.append(self.word_to_index[token])
+            if(len(aux)>amax):
+                aux=aux[0:amax]
+                len_a2[i+2*len(df)]=amax
+            a2_input[i+2*len(df),0:len(aux)]=aux
     
         return q_input, a1_input, a2_input, len_q, len_a1, len_a2

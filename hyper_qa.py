@@ -356,14 +356,14 @@ if __name__ == '__main__':
                            emb_dropout = 1, dropout = 1, qmax = 60, 
                            amax = 30, emb_size= 300, pretrained = 1, 
                            opt= "Adagrad", all_dropout=0, rnn_size=200,
-                           num_proj = 3, margin = 5, l2_reg = 0.0001,
+                           num_proj = 3, margin = 10, l2_reg = 0.0001,
                            decay_lr = 0.95, decay_epoch = 100, batch_size = 50,
                            clip_norm = 1, trainable = False)
                            
     hyper = HyperQA(vocab_size = vocab_size, args = argumentos )
 
     embeddings = PreTrainedEmbeddings.from_embeddings_file('glove.6B.300d.txt')
-    training = 1
+    training = 0
     
     with hyper.graph.as_default():
         train = hyper.opt.minimize(hyper.cost)
@@ -391,18 +391,22 @@ if __name__ == '__main__':
                     result = sess.run(hyper.cost, feed_dict = feed)
                     cost_f.append(result)
                     print(step,": ",result)
-                saver.save(sess,'models/v7.ckpt')
+                saver.save(sess,'models/v18.ckpt')
                 df_cost = pd.DataFrame(data = cost_f, columns=["Batch Cost"])
-                df_cost.to_csv('/home/arthur/learning/ml_and_dataScience/LhyperQA/cost_train_7.csv',index=False)
+                df_cost.to_csv('/home/arthur/learning/ml_and_dataScience/LhyperQA/cost_train_18.csv',index=False)
             else:
-                df_val = pd.read_csv('/home/arthur/learning/ml_and_dataScience/embeddings/AI2-ScienceQuestions-V2.1-Jan2018/ElementarySchool/val_data.csv')
+                df_val = pd.read_csv('/home/arthur/learning/ml_and_dataScience/LhyperQA/validation_data.csv')
                 print(len(df_val))
                 df_val.q1=df_val.q1.apply(lambda x: literal_eval(x))
                 df_val.a=df_val.a.apply(lambda x: literal_eval(x))
                 df_val.b=df_val.b.apply(lambda x: literal_eval(x))
                 df_val.c=df_val.c.apply(lambda x: literal_eval(x))
                 df_val.d=df_val.d.apply(lambda x: literal_eval(x))
-                saver.restore(sess,'models/second.ckpt')
+                df_val.a1=df_val.a1.apply(lambda x: literal_eval(x))
+                df_val.wa1=df_val.wa1.apply(lambda x: literal_eval(x))
+                df_val.wa2=df_val.wa2.apply(lambda x: literal_eval(x))
+                df_val.wa3=df_val.wa3.apply(lambda x: literal_eval(x))
+                saver.restore(sess,'models/v9.ckpt')
                 q, a1, a2, len_q1, len_a1, len_a2, = embeddings.get_data_test(60,30,df_val)
                 feed={hyper.q1_inputs:q, hyper.q2_inputs:a1, hyper.q3_inputs:a2,
                         hyper.q1_len: len_q1, hyper.q2_len: len_a1, hyper.q3_len: len_a2,
@@ -414,12 +418,19 @@ if __name__ == '__main__':
                 score_all = tf.reshape(score_all, [-1, 4])
                 print("Imprimindo reshapeado:\n",sess.run(score_all))
                 final=tf.argmin(score_all,1)# tipo <class 'tensorflow.python.framework.ops.Tensor'>
-                prediction = sess.run(final)
-                #print(prediction) #tipo <class 'numpy.ndarray'>
+                prediction = sess.run(final)#tipo <class 'numpy.ndarray'>
+                
+                q, a1, a2, len_q1, len_a1, len_a2 = embeddings.get_data_cost(60,30,df_val)
+                feed={hyper.q1_inputs:q, hyper.q2_inputs:a1, hyper.q3_inputs:a2,
+                    hyper.q1_len: len_q1, hyper.q2_len: len_a1, hyper.q3_len: len_a2,
+                    hyper.dropout: 1, hyper.emb_dropout: 1,
+                    hyper.learn_rate: hyper.args.learn_rate, hyper.emb_placeholder:embeddings.word_vectors}
+                cost=sess.run(hyper.cost, feed_dict = feed)
                 final_data = pd.concat([df_val,pd.DataFrame(data = prediction, columns=["prediction"])],axis=1)
                 dict1 = {0:"A",1:"B", 2:"C", 3:"D"}
                 final_data["prediction"].replace(dict1,inplace = True)
-                final_data.to_csv('/home/arthur/learning/ml_and_dataScience/LhyperQA/val_result2.csv',index=False)
+                final_data["Custo Médio Batch"]=cost*50/(3*len(df_val))
+                final_data.to_csv('/home/arthur/learning/ml_and_dataScience/LhyperQA/validation/val_result9.csv',index=False)
 
 
 
